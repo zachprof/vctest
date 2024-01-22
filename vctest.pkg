@@ -1,0 +1,23 @@
+v 3
+d {bf:vctest}: Vuong and Clarke tests for nonnested model selection
+d 
+d {bf:vctest} estimates Vuong and Clarke tests for nonnested model selection using the standard 
+d approaches in Dechow (1994) and Clarke and Signorino (2010).
+d
+d After installation, type {bf:help vctest}
+d
+d Additional information and illustrative examples will be provided in the future at 
+d {browse "www.zach.prof":zach.prof}
+d 
+d Author: Zachary King
+d 
+d Version: 1.0
+d Distribution-Date: January 22, 2024
+d License: MIT
+d 
+F vctest.ado
+F vctest.sthlp
+F vctest_boxcox.ado
+F vctest_print.ado
+F vctest_regress.ado
+F vctest_save.ado
