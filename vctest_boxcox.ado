@@ -23,7 +23,7 @@ program define vctest_boxcox
 		`quietly' $vctest_model_b
 	}
 	
-	* Save # of obs if model a specified, else verify # of obs same as model a
+	* Save # of obs. if model a specified, else verify # of obs. same as model a
 	
 	if "`model'" == "a" global vctest_n = e(N)
 	else if e(N) != $vctest_n {
@@ -31,7 +31,7 @@ program define vctest_boxcox
 		exit 416
 	}
 	
-	* Save theta (i.e., the reshaping parameter for the dependent variable)
+	* Save theta (the reshaping parameter for the dependent variable)
 	
 	global vctest_theta_`model' = e(b)[1,e(df_m)-1]
 	
@@ -75,8 +75,8 @@ program define vctest_boxcox
 	* Save residuals
 	
 	tempvar resid
-	qui: predict double `resid' `if' `in' , residuals
-	mkmat `resid', mat(vctest_residuals_`model')
+	quietly predict double `resid' `if' `in' , residuals
+	quietly putmata vctest_residuals_`model'=`resid'
 	
 	* Drop transformed variables
 	

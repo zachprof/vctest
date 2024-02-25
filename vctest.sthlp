@@ -1,7 +1,7 @@
 {smcl}
-{* *! version 1.0  Published January 22, 2024}{...}
+{* *! version 1.1  Published February 25, 2024}{...}
 {p2colset 2 12 14 28}{...}
-{right: Version 1.0 }
+{right: Version 1.1 }
 {p2col:{bf:vctest} {hline 2}}Vuong and Clarke tests for nonnested model selection{p_end}
 {p2colreset}{...}
 
@@ -28,11 +28,13 @@ Use {help boxcox} to estimate regressions underlying Vuong and Clarke tests
 {synoptline}
 {synopt:{opt show:reg}}show regression output tables{p_end}
 {synopt:{opt nocons:tant}}suppress constant terms{p_end}
+{synopt:{opt successb}}Define Clarke test successes as # of obs. for which model b outperforms model a{p_end}
 {synopt:{opt r:oundto(#)}}set number of decimal places to round to; # must be integer between zero and 6; default is # = 2{p_end}
 {synopt:{opt rsqr:oundto(#)}}overrides option {cmd:roundto(#)} for R2; # must be integer between zero and 6; default is # = 2 or # specified by option {cmd:roundto(#)}; R2 suppressed when {help boxcox} used to estimate models{p_end}
 {synopt:{opt llr:oundto(#)}}overrides option {cmd:roundto(#)} for log-likelihoods; # must be integer between zero and 6; default is # = 2 or # specified by option {cmd:roundto(#)}{p_end}
 {synopt:{opt zr:oundto(#)}}overrides option {cmd:roundto(#)} for z-statistics; # must be integer between zero and 6; default is # = 2 or # specified by option {cmd:roundto(#)}{p_end}
 {synopt:{opt pr:oundto(#)}}overrides option {cmd:roundto(#)} for p-values; # must be integer between zero and 6; default is # = 2 or # specified by option {cmd:roundto(#)}{p_end}
+{synopt:{opt successpct(#)}}Define Clarke test successes as a % rounded to # decimal places; # must be integer between zero and 6; # has no default and must be specified{p_end}
 {synoptline}
 
 
@@ -49,11 +51,11 @@ Use {help boxcox} to estimate regressions underlying Vuong and Clarke tests
 {title:Remarks}
 
 {p 4 6 2}
-  Vuong and Clarke tests are implemented using the standard approaches in Dechow (1994) and Clarke and Signorino (2010).
+  This code can be used to replicate all Vuong and Clarke tests in King (2024).
   {p_end}
 
 {p 4 6 2}
-  This code can be used to replicate all Vuong and Clarke tests in King (2024).
+  Vuong and Clarke tests are implemented using the standard approaches in Dechow (1994) and Clarke and Signorino (2010) with the Schwarz (1978) adjustment.
   {p_end}
 
 

@@ -5,9 +5,16 @@
 
 program define vctest_print
 
-	syntax , r2round(numlist max=1) llround(numlist max=1) zround(numlist max=1) pround(numlist max=1) [NOR2]
+	syntax , r2round(numlist max=1) llround(numlist max=1)    ///
+	         zround(numlist max=1)  pround(numlist max=1)     ///
+			 successpct(numlist max=1) [NOR2 SUCCESSB]
 	
-	di $vctest_lnL_a
+	* Define Clarke test successes depending on if option successb specified
+	if "`successb'" != "" global vctest_csuccesses = $vctest_csuccesses_b
+	else global vctest_csuccesses = $vctest_csuccesses_a
+	
+	* Define successes as % if option successpct specified
+	if `successpct' > -1 global vctest_csuccesses = ( $vctest_csuccesses / $vctest_n ) * 100
 	
 	* Declare temporary local macros used throughout
 	tempname colnum diff
@@ -168,7 +175,7 @@ Vuong and Clarke tests for nonested model selection:
     5   10   15   20   25   30   35   40   45   50   55   60   65   70   
 ++++|++++|++++|++++|++++|++++|++++|++++|++++|++++|++++|++++|++++|++++|+++
 -------------------------------------------------------------------------
-              Vuong test                           Clarke test   
+             Vuong test                          Clarke test              
  ----------------------------------   ----------------------------------
  z-statistic              123456789   successes                123456789
  p-value (Ha: diff != 0)  123456789   p-value (Ha: diff != 0)  123456789
@@ -177,7 +184,8 @@ Vuong and Clarke tests for nonested model selection:
 -------------------------------------------------------------------------
 Vuong and Clarke tests above compare differences in log-likelihoods after
 Schwarz adjustment; this adjustment does not affect test outcomes if # of
-independent variables is same in both models
+independent variables is same in both models; Clarke test successes equal
+the number of observations for which model a/b outperformed model b/a
 */
 
 	* Skip line
@@ -185,7 +193,7 @@ independent variables is same in both models
 	
 	* Header
 	di as text in smcl "{hline 73}"
-	di as text in smcl _col(15) "Vuong test" _col(52) "Clarke test"
+	di as text in smcl _col(14) "Vuong test" _col(50) "Clarke test"
 	di as text in smcl _col(2) "{hline 34}" _col(39) "{hline 34}"
 	
 	* z-statistic and successes
@@ -195,9 +203,18 @@ independent variables is same in both models
 	local colnum = 35 - $vctest_col_adj
 	di as result in smcl _continue _col(`colnum') "$vctest_formattedstat"
 	
-	di as text in smcl _continue _col(39) "successes"
+	if `successpct' == -1 {
+		if "`successb'" == "" di as text in smcl _continue _col(39) "successes (diff > 0)"
+		else di as text in smcl _continue _col(39) "successes (diff < 0)"
+		format_stat_vctest, unformattedval( $vctest_csuccesses ) roundto(0) maxlength(20)
+	}
 	
-	format_stat_vctest, unformattedval( $vctest_csuccesses ) roundto(0) maxlength(20)
+	else {
+		if "`successb'" == "" di as text in smcl _continue _col(39) "successes (diff > 0) (%)"
+		else di as text in smcl _continue _col(39) "successes (diff < 0) (%)"
+		format_stat_vctest, unformattedval( $vctest_csuccesses ) roundto(`successpct') maxlength(20)
+	}
+	
 	local colnum = 72 - $vctest_col_adj
 	di as result in smcl _col(`colnum') "$vctest_formattedstat"
 	
@@ -246,13 +263,28 @@ independent variables is same in both models
 	* Note
 	di "Vuong and Clarke tests above compare differences in log-likelihoods after"
 	di "Schwarz adjustment; this adjustment does not affect test outcomes if # of"
-	di "independent variables is same in both models"
+	if "`successb'" == "" {
+		di "independent variables is same in both models; Clarke test successes equal"
+		if `successpct' == -1 di "the number of observations for which model a outperformed model b"
+		else di "the percent of observations for which model a outperformed model b"
+	}
+	else {
+		di "independent variables is same in both models; Clarke test successes equal"
+		if `successpct' == -1 di "the number of observations for which model b outperformed model a"
+		else di "the percent of observations for which model b outperformed model a"
+	}
 		
 end
 
 program define format_stat_vctest
 
-	syntax , unformattedval(numlist max=1) roundto(numlist max=1) maxlength(numlist max=1)
+	syntax , unformattedval(numlist max=1 missingokay) roundto(numlist max=1) maxlength(numlist max=1)
+	
+	if missing(`unformattedval') {
+		global vctest_formattedstat = "."
+		global vctest_col_adj = 2
+		exit
+	}
 	
 	tempname int_length
 	local `int_length' = length(strofreal(int(abs(`unformattedval'))))
