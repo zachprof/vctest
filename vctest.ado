@@ -1,5 +1,5 @@
 *! Title:       vctest.ado   
-*! Version:     1.0 published January 22, 2024
+*! Version:     1.1 published February 25, 2024
 *! Author:      Zachary King 
 *! Email:       me@zach.prof
 *! Description: Vuong and Clarke tests for nonnested model selection
@@ -12,11 +12,12 @@ program define vctest
 	
 	* Define syntax
 	
-	syntax anything [if] [in] [, SHOWreg NOCONStant          ///
-	Roundto(numlist max=1 >=0 <=6)                          /// 
-	RSQRound(numlist max=1 >=0 <=6)                        ///  
-	LLRound(numlist max=1 >=0 <=6)   					     ///
-	ZRound(numlist max=1 >=0 <=6)                           /// 
+	syntax anything [if] [in] [, SHOWreg NOCONStant SUCCESSB ///
+	SUCCESSPCT(numlist max=1 >=0 <=6)                       /// 
+	Roundto(numlist max=1 >=0 <=6)                         ///  
+	RSQRound(numlist max=1 >=0 <=6)                          ///  
+	LLRound(numlist max=1 >=0 <=6)   					    /// 
+	ZRound(numlist max=1 >=0 <=6)                          ///  
 	PRound(numlist max=1 >=0 <=6)]
 	
 	* Delete colon if specified at beginning of `anything'
@@ -65,6 +66,10 @@ program define vctest
 	if "`rsqround'" == "" local rsqround = `roundto' // R-squared	
 	if "`zround'" == "" local zround = `roundto'     // z-statistic
 	if "`pround'" == "" local pround = `roundto'     // p-values
+	
+	* Set option successpct to -1 if not specified
+	
+	if "`successpct'" == "" local successpct = -1
 	
 	* Add "model(theta) from(0.1 0.1, copy)" to opts if boxcox
 	
@@ -123,7 +128,8 @@ program define vctest
 	
 	* Display estimates of explanatory power and results of Vuong and Clarke tests
 	
-	vctest_print, r2round(`rsqround') llround(`llround') zround(`zround') pround(`pround') `nor2'
+	vctest_print, r2round(`rsqround') llround(`llround') zround(`zround') ///
+	pround(`pround') successpct(`successpct') `nor2' `successb' 
 	
 	* Save all global macros to e()
 	
@@ -133,6 +139,10 @@ program define vctest
 	
 	macro drop vctest_*
 	
+	* Drop mata matrices associated with vctest
+	
+	mata: mata drop vctest_*
+	
 end
 
 program define ols_log_likelihood
@@ -141,19 +151,15 @@ program define ols_log_likelihood
 	
 	* Reinstate residual matrix as a temporary variable
 	
-	tempvar resid obs
-	local `obs' = rowsof(vctest_residuals_`model')
-	quietly generate double `resid' = .
-	forvalues i = 1/``obs'' {
-		quietly replace `resid' = vctest_residuals_`model'[`i',1] if _n==`i'
-	}
+	tempvar resid
+	quietly getmata `resid'=vctest_residuals_`model'
 	
 	* Save observation-level log-likelihood suggested by Dechow (1994, eqs. A.3-A.4)
 	
 	tempvar lnL_oblev
 	if "`model'" == "a" quietly generate double `lnL_oblev' = -0.5*ln( 2*_pi*$vctest_sigma2_a ) - (`resid'^2)/( 2*$vctest_sigma2_a )
 	if "`model'" == "b" quietly generate double `lnL_oblev' = -0.5*ln( 2*_pi*$vctest_sigma2_b ) - (`resid'^2)/( 2*$vctest_sigma2_b )
-	mkmat `lnL_oblev', mat(vctest_lnL_oblev_`model')
+	quietly putmata vctest_lnL_oblev_`model'=`lnL_oblev'
 	
 	* Save sample-wide log-likelihood
 	
@@ -165,7 +171,7 @@ program define ols_log_likelihood
 	tempvar lnLadj_oblev
 	if "`model'" == "a" qui: gen double `lnLadj_oblev' = `lnL_oblev' - ( $vctest_params_a / (2*$vctest_n ))*ln( $vctest_n )
 	if "`model'" == "b" qui: gen double `lnLadj_oblev' = `lnL_oblev' - ( $vctest_params_b / (2*$vctest_n ))*ln( $vctest_n )
-	mkmat `lnLadj_oblev', mat(vctest_lnLadj_oblev_`model')
+	quietly putmata vctest_lnLadj_oblev_`model'=`lnLadj_oblev'
 	
 	* Save sample-wide log-likelihood with Schwarz (1978) adjustment
 	
@@ -180,19 +186,15 @@ program define boxcox_log_likelihood
 	
 	* Reinstate residual matrix as a temporary variable
 	
-	tempvar resid obs
-	local `obs' = rowsof(vctest_residuals_`model')
-	qui: gen `resid' = .
-	forvalues i = 1/``obs'' {
-		qui: replace `resid' = vctest_residuals_`model'[`i',1] if _n==`i'
-	}
+	tempvar resid 
+	quietly getmata `resid'=vctest_residuals_`model'
 	
 	* Save observation-level log-likelihood suggested in King (2024, Eqs. D.3A and D.3B)
 	
 	tempvar lnL_oblev
 	if "`model'" == "a" qui: gen double `lnL_oblev' = -0.5*ln( 2*_pi*$vctest_sigma2_a ) + ( $vctest_theta_a - 1)*ln(`varlist') - (`resid'^2)/( 2*$vctest_sigma2_a )
 	if "`model'" == "b" qui: gen double `lnL_oblev' = -0.5*ln( 2*_pi*$vctest_sigma2_b ) + ( $vctest_theta_b - 1)*ln(`varlist') - (`resid'^2)/( 2*$vctest_sigma2_b )
-	mkmat `lnL_oblev', mat(vctest_lnL_oblev_`model')
+	quietly putmata vctest_lnL_oblev_`model'=`lnL_oblev'
 	
 	* Save sample-wide log-likelihood
 	
@@ -204,7 +206,7 @@ program define boxcox_log_likelihood
 	tempvar lnLadj_oblev
 	if "`model'" == "a" qui: gen double `lnLadj_oblev' = `lnL_oblev' - ( $vctest_params_a / (2*$vctest_n ))*ln( $vctest_n )
 	if "`model'" == "b" qui: gen double `lnLadj_oblev' = `lnL_oblev' - ( $vctest_params_b / (2*$vctest_n ))*ln( $vctest_n )
-	mkmat `lnLadj_oblev', mat(vctest_lnLadj_oblev_`model')
+	quietly putmata vctest_lnLadj_oblev_`model'=`lnLadj_oblev'
 	
 	* Save sample-wide log-likelihood with Schwarz (1978) adjustment
 	
@@ -215,7 +217,7 @@ end
 
 program define vuong_and_clarke_tests
 
-	* Calculate likelihood ratio suggested in Vuong(1989)
+	* Calculate likelihood ratio suggested in Vuong (1989)
 	
 	global vctest_LR = $vctest_lnL_a - $vctest_lnL_b
 	
@@ -225,19 +227,9 @@ program define vuong_and_clarke_tests
 	
 	* Reinstate observation-level log-likelihood matrices as temporary variables
 	
-	tempvar lnL_oblev_a lnL_oblev_b obs
-	
-	local `obs' = rowsof(vctest_lnL_oblev_a)
-	qui: gen `lnL_oblev_a' = .
-	forvalues i = 1/``obs'' {
-		qui: replace `lnL_oblev_a' = vctest_lnL_oblev_a[`i',1] if _n==`i'
-	}
-	
-	local `obs' = rowsof(vctest_lnL_oblev_b)
-	qui: gen `lnL_oblev_b' = .
-	forvalues i = 1/``obs'' {
-		qui: replace `lnL_oblev_b' = vctest_lnL_oblev_b[`i',1] if _n==`i'
-	}
+	tempvar lnL_oblev_a lnL_oblev_b
+	quietly getmata `lnL_oblev_a'=vctest_lnL_oblev_a
+	quietly getmata `lnL_oblev_b'=vctest_lnL_oblev_b
 	
 	* Calculate sum of squared observation-level log-likelihood ratios (used below in variance calculation)
 	
@@ -260,38 +252,49 @@ program define vuong_and_clarke_tests
 	global vctest_vponea = normal( -1*     $vctest_z )
 	global vctest_vponeb = normal(         $vctest_z )
 	
-	* Reinstate observation-level log-likelihood matrices with Schwarz (1978) adjustment as a temporary variables for Clarke tests
+	* Reinstate observation-level log-likelihood matrices with Schwarz (1978) adjustment as temporary variables for Clarke tests
 	
 	tempvar lnLadj_oblev_a lnLadj_oblev_b
-	
-	local `obs' = rowsof(vctest_lnLadj_oblev_a)
-	quietly generate double `lnLadj_oblev_a' = .
-	forvalues i = 1/``obs'' {
-		quietly replace `lnLadj_oblev_a' = vctest_lnLadj_oblev_a[`i',1] if _n==`i'
-	}
-	
-	local `obs' = rowsof(vctest_lnLadj_oblev_b)
-	quietly generate double `lnLadj_oblev_b' = .
-	forvalues i = 1/``obs'' {
-		quietly replace `lnLadj_oblev_b' = vctest_lnLadj_oblev_b[`i',1] if _n==`i'
-	}
+	quietly getmata `lnLadj_oblev_a'=vctest_lnLadj_oblev_a
+	quietly getmata `lnLadj_oblev_b'=vctest_lnLadj_oblev_b
 	
 	* Calculate number of Clarke successes with Schwarz (1978) adjustment following Clarke and Signorino (2010, p. 378)
-	* Define successes here in terms of whether model a is better than model b so one-sided p-values are correct
 	
-	tempvar csucces_oblev
-	quietly generate double `csucces_oblev' = (`lnLadj_oblev_a'-`lnLadj_oblev_b')>0 & `lnLadj_oblev_a'!=. & `lnLadj_oblev_b'!=.
-	quietly total `csucces_oblev' `if' `in'
-	global vctest_csuccesses = e(b)[1,1]
+	* Define successes in terms of whether model a is better than model b:
+	tempvar csucces_oblev_a
+	quietly generate double `csucces_oblev_a' = (`lnLadj_oblev_a'-`lnLadj_oblev_b')>0 & `lnLadj_oblev_a'!=. & `lnLadj_oblev_b'!=.
+	quietly total `csucces_oblev_a' `if' `in'
+	global vctest_csuccesses_a = e(b)[1,1]
 	
-	* Calculate p-values for Clarke test
-
-	global vctest_cponea = binomialtail( $vctest_n , $vctest_csuccesses , 0.5)
-	global vctest_cponeb = binomial( $vctest_n , $vctest_csuccesses - 1, 0.5)
-	global vctest_cptwo = min( $vctest_cponea , $vctest_cponeb )*2
+	* Define successes in terms of whether model b is better than model a:
+	tempvar csucces_oblev_b
+	quietly generate double `csucces_oblev_b' = (`lnLadj_oblev_b'-`lnLadj_oblev_a')>0 & `lnLadj_oblev_a'!=. & `lnLadj_oblev_b'!=.
+	quietly total `csucces_oblev_b' `if' `in'
+	global vctest_csuccesses_b = e(b)[1,1]
 	
-	* Redefine number of successes in terms of which model performed better for reporting purposes
+	* Identify number of ties to allocate evenly across models for two-sided p-value:
+	tempvar csucces_ties
+	quietly generate double `csucces_ties' = `lnLadj_oblev_a'==`lnLadj_oblev_b' & `lnLadj_oblev_a'!=. & `lnLadj_oblev_b'!=.
+	quietly total `csucces_ties' `if' `in'
+	global vctest_cties = e(b)[1,1]
 	
-	if $vctest_csuccesses < $vctest_n / 2 global vctest_csuccesses = $vctest_n - $vctest_csuccesses
+	* Calculate one-sided p-values:
+	global vctest_cponea = binomialtail( $vctest_n , $vctest_csuccesses_a , 0.5) - (binomialp( $vctest_n , $vctest_csuccesses_a , 0.5) / 2)
+	global vctest_cponeb = binomialtail( $vctest_n , $vctest_csuccesses_b , 0.5) - (binomialp( $vctest_n , $vctest_csuccesses_b , 0.5) / 2)
+	
+	* Calculate two-sided p-value (take minimum if ties exist and adjust for even v. odd sample size so max p-value = 1):
+	global vctest_csuccesses_tt_u = max( $vctest_csuccesses_a + ceil( $vctest_cties / 2 ) , $vctest_csuccesses_b + floor( $vctest_cties / 2 ) )
+	global vctest_csuccesses_tt_l = min( $vctest_csuccesses_a + ceil( $vctest_cties / 2 ) , $vctest_csuccesses_b + floor( $vctest_cties / 2 ) )
+	if floor( $vctest_n / 2) == $vctest_n / 2 {
+		global vctest_ttadj_u = (binomialp( $vctest_n , $vctest_csuccesses_tt_u , 0.5) / 2)
+		global vctest_ttadj_l = (binomialp( $vctest_n , $vctest_csuccesses_tt_l , 0.5) / 2)
+	}
+	else {
+		global vctest_ttadj_u = 0
+		global vctest_ttadj_l = 0
+	}
+	global vctest_cptwo_u = (binomialtail( $vctest_n , $vctest_csuccesses_tt_u , 0.5) - $vctest_ttadj_u )*2
+	global vctest_cptwo_l = (binomial( $vctest_n , $vctest_csuccesses_tt_l , 0.5) - $vctest_ttadj_l )*2
+	global vctest_cptwo = min( $vctest_cptwo_u , $vctest_cptwo_l )
 
 end

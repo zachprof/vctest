@@ -23,7 +23,7 @@ program define vctest_regress
 		`quietly' $vctest_model_b
 	}
 	
-	* Save # of obs if model a specified, else verify # of obs same as model a
+	* Save # of obs. if model a specified, else verify # of obs. same as model a
 	
 	if "`model'" == "a" global vctest_n = e(N)
 	else if e(N) != $vctest_n {
@@ -31,7 +31,7 @@ program define vctest_regress
 		exit 416
 	}
 	
-	* Save sample-wide sigma squared suggested by Dechow (1994, 38-39)
+	* Save sample-wide sigma squared suggested by Dechow (1994, pp. 38-39)
 	
 	global vctest_sigma2_`model' = e(rss) / e(N)
 	
@@ -50,7 +50,7 @@ program define vctest_regress
 	* Save residuals
 	
 	tempvar resid
-	qui: predict double `resid' `if' `in' , residuals
-	mkmat `resid', mat(vctest_residuals_`model')
+	quietly predict double `resid' `if' `in' , residuals
+	quietly putmata vctest_residuals_`model'=`resid'
 	
 end
